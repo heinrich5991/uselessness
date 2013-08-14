@@ -1,0 +1,42 @@
+#!/usr/bin/env python
+
+from binascii import crc32
+
+def crc32tw(data, crc=0):
+	return crc32(data, crc)
+
+
+def _file_bin_chunks(file, count=2**15):
+	return iter((lambda:file.read(count)), b'')
+
+if __name__ == '__main__':
+	try:
+		import argparse
+		import sys
+
+		p = argparse.ArgumentParser(description="Print Teeworlds' CRC checksums.")
+		p.add_argument('filenames', metavar="FILE", type=str, nargs='*', help="With no FILE, or when FILE is -, read standard input.")
+		p.add_argument('-q', '--quiet', help="Quiet mode, only output the CRC checksums, omit filenames", action='store_true')
+		args = p.parse_args()
+		for filename in args.filenames or ('-'):
+			crc = crc32tw(b'')
+			_filename = filename
+			if filename == '-':
+				_filename = 0
+			try:
+				with open(_filename, 'rb') as f:
+					for chunk in _file_bin_chunks(f):
+						crc = crc32tw(chunk, crc)
+			except FileNotFoundError:
+				sys.stderr.write("{}: {}: No such file or directory\n".format(p.prog, filename))
+			except IsADirectoryError:
+				sys.stderr.write("{}: {}: Is a directory\n".format(p.prog, filename))
+			except PermissionError:
+				sys.stderr.write("{}: {}: Permission denied\n".format(p.prog, filename))
+			else:
+				if not args.quiet:
+					print("{:08x} {}".format(crc, filename))
+				else:
+					print("{:08x}".format(crc))
+	except KeyboardInterrupt as e:
+		print()
